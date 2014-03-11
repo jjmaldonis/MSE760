@@ -1,0 +1,16 @@
+*.o
+*.mod
+
+hw1/hw1
+hw1/lattice.xyz
+hw2/forces.txt
+hw2/hw2
+hw2/lattice.xyz
+hw2/ts001.txt
+hw2/ts005.txt
+hw2/ts02.txt
+hw3/gr_final.txt
+hw3/gr_initial.txt
+hw3/hw3
+hw3/lattice.xyz
+hw3/out.txt
