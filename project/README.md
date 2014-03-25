@@ -11,6 +11,7 @@ Goal of project: Make progress towards figuring out what types of mutations woul
 * Try a couple of these ideas and change the number of atoms that we are changing as well.
 * I would do an EAM energy minimization for each "mutation idea", recording how many steps it took to minimize the model.
   * Hopefully??? better mutations will minimize the energy faster. Not sure if this makes complete sense yet. May need to revise... (ie what makes a mutation "good"? - probably not E minimization... this could be a project in and of itself I bet... but hey, maybe doing the CGM after each mutation will help? worth a shot I think.)
+  * Could also be useful to record the mean change in energy between each mutation. Im thinking that good mutations should, on average, result in structures with better delta-Es (after CGM of both pre-step and post-step model) than poor mutations.
   * Maybe something like jumping to a totally different basin (not metabasin). Some of my mutations above had better do that. Maybe I could move to a next-door basin (thinking kMC-ART sorta thing here).
   * One person moved atoms in a random direction a random number of times (5-50) while separating unphysically close atoms between each step.
 
@@ -28,7 +29,10 @@ do X = 1, ??? where X is the number of atoms to be changed in the model
         accept or reject based on metropolis
     enddo ! MC loop
     record final step # it took to equilibrate
+    record mean delta-E
 
 enddo ! X loop
 ```
 
+
+Look at final # of steps and/or delta-E for each simulation. Anything interesting?
