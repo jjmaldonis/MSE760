@@ -105,6 +105,8 @@ program rmc
     write(*,*) "Using LAMMPS!"
 #endif
 
+    write(*,*) "Single atom move. No mutations!"
+
     call mpi_init_thread(MPI_THREAD_MULTIPLE, ipvd, mpierr) !http://www.open-mpi.org/doc/v1.5/man3/MPI_Init_thread.3.php
     call mpi_comm_rank(mpi_comm_world, myid, mpierr)
     call mpi_comm_size(mpi_comm_world, numprocs, mpierr)
@@ -246,7 +248,6 @@ endif
         endif
 
 
-        call copy_model(m,mold)
         t0 = omp_get_wtime()
         ! RMC loop begins. The loop never stops.
         do while (i .ge. 0)
@@ -263,44 +264,24 @@ endif
             endif
 #endif
 
-            call cluster_move(m,atom1,atom2,cluster1,cluster2,cnatoms1,cnatoms2)
-            !call random_move(m,w,xx_cur,yy_cur,zz_cur,xx_new,yy_new,zz_new, max_move)
+            call random_move(m,w,xx_cur,yy_cur,zz_cur,xx_new,yy_new,zz_new, max_move)
             ! check_curoffs returns false if the new atom placement is too close to
             ! another atom. Returns true if the move is okay. (hard shere cutoff)
-            !do while( .not. check_cutoffs(m,cutoff_r,w) )
-            !    ! Check_cutoffs returned false so reset positions and try again.
-            !    m%xx%ind(w) = xx_cur
-            !    m%yy%ind(w) = yy_cur
-            !    m%zz%ind(w) = zz_cur
-            !    call random_move(m,w,xx_cur,yy_cur,zz_cur,xx_new,yy_new,zz_new, max_move)
-            !end do
+            do while( .not. check_cutoffs(m,cutoff_r,w) )
+                ! Check_cutoffs returned false so reset positions and try again.
+                m%xx%ind(w) = xx_cur
+                m%yy%ind(w) = yy_cur
+                m%zz%ind(w) = zz_cur
+                call random_move(m,w,xx_cur,yy_cur,zz_cur,xx_new,yy_new,zz_new, max_move)
+            end do
             ! Update hutches, data for chi2, and chi2/del_chi
-            !call hutch_move_atom(m,w,xx_new, yy_new, zz_new)
+            call hutch_move_atom(m,w,xx_new, yy_new, zz_new)
     
 #ifdef USE_LMP
-            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom1, " x ", m%xx%ind(atom1), " y ", m%xx%ind(atom1), " z ", m%xx%ind(atom1)
+            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", w, " x ", xx_new, " y ", yy_new, " z ", zz_new
             call lammps_command(lmp, trim(lmp_cmd_str))
-            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom2, " x ", m%xx%ind(atom2), " y ", m%xx%ind(atom2), " z ", m%xx%ind(atom2)
-            call lammps_command(lmp, trim(lmp_cmd_str))
-            do j=1, cnatoms1-1
-                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster1(j), " x ", m%xx%ind(cluster1(j)), " y ", m%xx%ind(cluster1(j)), " z ", m%xx%ind(cluster1(j))
-                call lammps_command(lmp, trim(lmp_cmd_str))
-            enddo
-            do j=1, cnatoms2-1
-                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster2(j), " x ", m%xx%ind(cluster2(j)), " y ", m%xx%ind(cluster2(j)), " z ", m%xx%ind(cluster2(j))
-                call lammps_command(lmp, trim(lmp_cmd_str))
-            enddo
-            call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
-            !call lammps_command (lmp, 'run 10000')
+            call lammps_command (lmp, 'run 0')
             call lammps_extract_compute (te2, lmp, 'pot', 0, 0)
-            ! Extracts a pointer to the arrays of positions for all atoms
-            call lammps_extract_atom (x, lmp, 'x')
-            ! Update all the model positions
-            do j=1,m%natoms
-                m%xx%ind(j) = x(1,j)
-                m%yy%ind(j) = x(2,j)
-                m%zz%ind(j) = x(3,j)
-            enddo
 #else
             call eam_mc(m, w, xx_cur, yy_cur, zz_cur, xx_new, yy_new, zz_new, te2)
 #endif
@@ -312,14 +293,12 @@ endif
 
             randnum = ran2(iseed2)
             ! Test if the move should be accepted or rejected based on del_chi
-            !if(del_chi <0.0)then
-            ! ALWAYS ACCEPT THE MOVE FOR NOW!
-            if(.true.)then
+            if(del_chi <0.0)then
+            !if(.true.)then
                 ! Accept the move
 #ifndef USE_LMP
                 e1 = e2 ! eam
 #endif
-                mold = m
                 chi2_old = chi2_new
                 accepted = .true.
                 !if(myid.eq.0) write(*,*) "MC move accepted outright."
@@ -331,18 +310,22 @@ endif
 #ifndef USE_LMP
                     e1 = e2 ! eam
 #endif
-                    mold = m
                     chi2_old = chi2_new
                     accepted = .true.
                     if(myid.eq.0) write(*,*) "MC move accepted due to probability. del_chi*beta = ", del_chi*beta
                 else
                     ! Reject move
+                    call reject_position(m, w, xx_cur, yy_cur, zz_cur)
+                    call hutch_move_atom(m,w,xx_cur, yy_cur, zz_cur) !update hutches.
+#ifdef USE_LMP
+            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", w, " x ", xx_cur, " y ", yy_cur, " z ", zz_cur
+            call lammps_command(lmp, trim(lmp_cmd_str))
+#endif
 #ifndef USE_LMP
                     e2 = e1 ! eam
 #endif
-                    m = mold
                     accepted = .false.
-                    if(myid.eq.0) write(*,*) "MC move rejected."
+                    if(myid.eq.0) write(*,*) "MC move rejected.", del_chi
                 endif
             endif
 
