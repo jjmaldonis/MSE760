@@ -291,7 +291,8 @@ endif
                 call lammps_command(lmp, trim(lmp_cmd_str))
             enddo
             call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
-            !call lammps_command (lmp, 'run 10000')
+            call lammps_command (lmp, 'run 1000')
+            call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
             call lammps_extract_compute (te2, lmp, 'pot', 0, 0)
             ! Extracts a pointer to the arrays of positions for all atoms
             call lammps_extract_atom (x, lmp, 'x')
