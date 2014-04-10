@@ -278,21 +278,21 @@ endif
             !call hutch_move_atom(m,w,xx_new, yy_new, zz_new)
     
 #ifdef USE_LMP
-            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom1, " x ", m%xx%ind(atom1), " y ", m%xx%ind(atom1), " z ", m%xx%ind(atom1)
+            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom1, " x ", m%xx%ind(atom1), " y ", m%yy%ind(atom1), " z ", m%zz%ind(atom1)
             call lammps_command(lmp, trim(lmp_cmd_str))
-            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom2, " x ", m%xx%ind(atom2), " y ", m%xx%ind(atom2), " z ", m%xx%ind(atom2)
+            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom2, " x ", m%xx%ind(atom2), " y ", m%yy%ind(atom2), " z ", m%zz%ind(atom2)
             call lammps_command(lmp, trim(lmp_cmd_str))
             do j=1, cnatoms1-1
-                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster1(j), " x ", m%xx%ind(cluster1(j)), " y ", m%xx%ind(cluster1(j)), " z ", m%xx%ind(cluster1(j))
+                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster1(j), " x ", m%xx%ind(cluster1(j)), " y ", m%yy%ind(cluster1(j)), " z ", m%yy%ind(cluster1(j))
                 call lammps_command(lmp, trim(lmp_cmd_str))
             enddo
             do j=1, cnatoms2-1
-                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster2(j), " x ", m%xx%ind(cluster2(j)), " y ", m%xx%ind(cluster2(j)), " z ", m%xx%ind(cluster2(j))
+                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster2(j), " x ", m%xx%ind(cluster2(j)), " y ", m%yy%ind(cluster2(j)), " z ", m%zz%ind(cluster2(j))
                 call lammps_command(lmp, trim(lmp_cmd_str))
             enddo
             call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
-            call lammps_command (lmp, 'run 1000')
-            call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
+            !call lammps_command (lmp, 'run 1000')
+            !call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
             call lammps_extract_compute (te2, lmp, 'pot', 0, 0)
             ! Extracts a pointer to the arrays of positions for all atoms
             call lammps_extract_atom (x, lmp, 'x')
@@ -313,9 +313,8 @@ endif
 
             randnum = ran2(iseed2)
             ! Test if the move should be accepted or rejected based on del_chi
-            !if(del_chi <0.0)then
-            ! ALWAYS ACCEPT THE MOVE FOR NOW!
-            if(.true.)then
+            if(del_chi <0.0)then
+            !if(.true.)then
                 ! Accept the move
 #ifndef USE_LMP
                 e1 = e2 ! eam
@@ -342,8 +341,12 @@ endif
                     e2 = e1 ! eam
 #endif
                     m = mold
+                    do j=1, m%natoms
+                        write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", j, " x ", m%xx%ind(j), " y ", m%yy%ind(j), " z ", m%zz%ind(j)
+                        call lammps_command(lmp, trim(lmp_cmd_str))
+                    enddo
                     accepted = .false.
-                    if(myid.eq.0) write(*,*) "MC move rejected."
+                    if(myid.eq.0) write(*,*) "MC move rejected.", del_chi
                 endif
             endif
 
