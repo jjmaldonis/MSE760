@@ -98,10 +98,6 @@ subroutine generate_lat(nuc, latcon, x, y, z, natoms)
     x = x - (latcon*nuc)/2.0
     y = y - (latcon*nuc)/2.0
     z = z - (latcon*nuc)/2.0
-    write(*,*) x(1), y(1), z(1)
-    write(*,*) x(2), y(2), z(2)
-    write(*,*) x(3), y(3), z(3)
-    write(*,*) x(4), y(4), z(4)
     !write(*,*) "Box size = ",nuc, "unit cells =", latcon*nuc
 end subroutine generate_lat
 
@@ -425,7 +421,7 @@ subroutine msd(x,y,z, xi,yi,zi, natoms, boxsize, t, outvalue)
         r2 = rx**2+ry**2+rz**2
         r2sum = r2sum + r2
     enddo
-    outvalue = r2sum / (float(natoms) * 6.0*t)
+    outvalue = r2sum / float(natoms) !(float(natoms) * 6.0*t)
 end subroutine msd
 
 
@@ -497,8 +493,8 @@ program hw1
     double precision :: meansqd ! Mean square displacement
     double precision :: diffusivity, cvv
 
-    nuc = 7
-    temperature = 480.0 *kb/eps
+    nuc = 10
+    temperature = 133.0 *kb/eps
     timestep = 0.005
 
     call generate_lat(nuc, latcon, x, y, z, natoms)
@@ -506,18 +502,18 @@ program hw1
     boxsize = nuc*latcon
     write(*,*) "Initial box size =", boxsize
 
+    !call lat_save(x,y,z,natoms,"lattice.xyz",sigma)
+
+    rho = 0.85 ! Desired density (reduced) for input into volume rescaling
+    call rescale_vol(x,y,z,natoms,boxsize,rho) ! VOLUME rescaling
+    write(*,*) "Rescaled box size to", boxsize
+
     allocate(xi(natoms))
     allocate(yi(natoms))
     allocate(zi(natoms))
     xi = x
     yi = y
     zi = z
-
-    call lat_save(x,y,z,natoms,"lattice.xyz",sigma)
-
-    rho = 0.85 ! Desired density (reduced) for input into volume rescaling
-    call rescale_vol(x,y,z,natoms,boxsize,rho) ! VOLUME rescaling
-    write(*,*) "Rescaled box size to", boxsize
 
     nhis = 250
     call gr(x,y,z,natoms,boxsize,g,nhis,sigma)
@@ -535,7 +531,7 @@ program hw1
     ! Need to equilibrate the temp and velocities before setting initial values
     write(*,*) "Equilibrating..."
     call etot(x,y,z,fx,fy,fz,natoms,boxsize,e1,epot)
-    do i=1, ceiling(1.0/timestep)
+    do i=1, ceiling(10.0/timestep)
         call vv_update(x,y,z,vx,vy,vz,fx,fy,fz,natoms,boxsize,timestep,e1,epot)
     enddo
     allocate(vxi(natoms))
@@ -545,11 +541,21 @@ program hw1
     vyi = vx
     vzi = vx
 
+    ! Used to calculate gr after volume rescaling
+    !call gr(x,y,z,natoms,boxsize,g,nhis,sigma)
+    !open(20,file="gr_post_vol_rescale_equilibrate.txt",status='unknown')
+    !write(20,*) "r, gr"
+    !do i=1,nhis
+    !    write(20,*) boxsize/nhis*i,g(i)
+    !enddo
+    !close(20)
+    !stop
+
     write(*,*) "step, time (ps), etotal, epot, Ecohesive, ekin, temperature, MSD, cvv"
     ! MD Simulation
     ! Calculate accelerations in etot, stores them in fx, fy, fz
     call etot(x,y,z,fx,fy,fz,natoms,boxsize,e1,epot)
-    do i=1, ceiling(10.0/timestep)
+    do i=1, ceiling(100.0/timestep)
         call vv_update(x,y,z,vx,vy,vz,fx,fy,fz,natoms,boxsize,timestep,e1,epot)
         call msd(x,y,z,xi,yi,zi,natoms,boxsize,timestep*i,meansqd)
         diffusivity = meansqd/(2.0*timestep*i)
@@ -557,7 +563,7 @@ program hw1
         epot = sum(e1)*eps ! Convert to real units
         call calc_temp(temperature,natoms,vx,vy,vz)
         ekin = 3.0/2.0*temperature*eps ! Convert to real units
-        write(*,"(I5,8F15.9)") i, i*timestep*eps*1000, (epot/natoms+ekin), epot, epot/natoms, ekin, temperature/kb*eps, meansqd, cvv
+        write(*,"(I5,8F15.9)") i, i*timestep*eps, (epot/natoms+ekin), epot, epot/natoms, ekin, temperature/kb*eps, meansqd, cvv
     enddo
 
     call calc_temp(temperature,natoms,vx,vy,vz)
