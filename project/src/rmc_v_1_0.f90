@@ -280,6 +280,18 @@ endif
             !call hutch_move_atom(m,w,xx_new, yy_new, zz_new)
     
 #ifdef USE_LMP
+            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom1, " x ", m%xx%ind(atom1), " y ", m%yy%ind(atom1), " z ", m%zz%ind(atom1)
+            call lammps_command(lmp, trim(lmp_cmd_str))
+            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom2, " x ", m%xx%ind(atom2), " y ", m%yy%ind(atom2), " z ", m%zz%ind(atom2)
+            call lammps_command(lmp, trim(lmp_cmd_str))
+            do j=1, cnatoms1-1
+                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster1(j), " x ", m%xx%ind(cluster1(j)), " y ", m%yy%ind(cluster1(j)), " z ", m%yy%ind(cluster1(j))
+                call lammps_command(lmp, trim(lmp_cmd_str))
+            enddo
+            do j=1, cnatoms2-1
+                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster2(j), " x ", m%xx%ind(cluster2(j)), " y ", m%yy%ind(cluster2(j)), " z ", m%zz%ind(cluster2(j))
+                call lammps_command(lmp, trim(lmp_cmd_str))
+            enddo
             !if(m%znum%ind(atom1) .eq. 40) then
             !    temp = 1
             !else if( m%znum%ind(atom1) .eq. 29) then
@@ -323,8 +335,8 @@ endif
 
             randnum = ran2(iseed2)
             ! Test if the move should be accepted or rejected based on del_chi
-            if(del_chi <0.0)then
-            !if(.true.)then
+            !if(del_chi <0.0)then
+            if(.true.)then
                 ! Accept the move
 #ifndef USE_LMP
                 e1 = e2 ! eam
