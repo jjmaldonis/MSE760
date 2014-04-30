@@ -137,4 +137,33 @@ subroutine cluster_move(m,atom1,atom2,atoms1,atoms2,cnatoms1,cnatoms2)
 
 end subroutine cluster_move
 
+subroutine z_swap(m,atom1,atom2)
+    implicit none
+    type(model), intent(inout) :: m
+    integer :: i,j,k, atom1, atom2
+    integer :: iseed, temp
+    real :: rand1, rand2, rand3, rand4
+
+    iseed = 791315
+
+    rand1 = ran2(iseed)
+    rand2 = ran2(iseed)
+    atom1 = int(m%natoms*rand1)+1
+    atom2 = int(m%natoms*rand2)+1
+
+    do while ( m%znum%ind(atom1) .eq. m%znum%ind(atom2) )
+        write(*,*) "Had to retry", m%znum%ind(atom1), m%znum%ind(atom2)
+        rand1 = ran2(iseed)
+        rand2 = ran2(iseed)
+        atom1 = int(m%natoms*rand1)+1
+        atom2 = int(m%natoms*rand2)+1
+    enddo
+
+    temp = m%znum%ind(atom1)
+    m%znum%ind(atom1) = m%znum%ind(atom2)
+    m%znum%ind(atom2) = temp
+    
+end subroutine z_swap
+
+
 end module

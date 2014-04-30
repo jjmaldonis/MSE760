@@ -48,6 +48,8 @@ program rmc
     real (C_double), pointer :: te2 => NULL()
     character (len=512) :: lmp_cmd_str
     real (C_double), dimension(:,:), pointer :: x => NULL()
+    integer (C_int), pointer :: types(:)
+    integer (C_int), pointer :: id(:)
 #endif
     ! RMC / Femsim objects
     type(model) :: m, mold
@@ -93,7 +95,7 @@ program rmc
     !real :: x! This is the parameter we will use to fit vsim to vas.
     integer, dimension(1000) :: acceptance_array
     real :: avg_acceptance = 1.0
-    integer :: atom1,atom2, cnatoms1, cnatoms2
+    integer :: atom1,atom2, cnatoms1, cnatoms2, temp
     integer, dimension(:), pointer :: cluster1, cluster2
 
     !------------------- Program setup. -----------------!
@@ -245,7 +247,6 @@ endif
             close(37)
         endif
 
-
         call copy_model(m,mold)
         t0 = omp_get_wtime()
         ! RMC loop begins. The loop never stops.
@@ -263,6 +264,7 @@ endif
             endif
 #endif
 
+            !call z_swap(m,atom1,atom2)
             call cluster_move(m,atom1,atom2,cluster1,cluster2,cnatoms1,cnatoms2)
             !call random_move(m,w,xx_cur,yy_cur,zz_cur,xx_new,yy_new,zz_new, max_move)
             ! check_curoffs returns false if the new atom placement is too close to
@@ -278,29 +280,37 @@ endif
             !call hutch_move_atom(m,w,xx_new, yy_new, zz_new)
     
 #ifdef USE_LMP
-            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom1, " x ", m%xx%ind(atom1), " y ", m%yy%ind(atom1), " z ", m%zz%ind(atom1)
-            call lammps_command(lmp, trim(lmp_cmd_str))
-            write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", atom2, " x ", m%xx%ind(atom2), " y ", m%yy%ind(atom2), " z ", m%zz%ind(atom2)
-            call lammps_command(lmp, trim(lmp_cmd_str))
-            do j=1, cnatoms1-1
-                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster1(j), " x ", m%xx%ind(cluster1(j)), " y ", m%yy%ind(cluster1(j)), " z ", m%yy%ind(cluster1(j))
-                call lammps_command(lmp, trim(lmp_cmd_str))
-            enddo
-            do j=1, cnatoms2-1
-                write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", cluster2(j), " x ", m%xx%ind(cluster2(j)), " y ", m%yy%ind(cluster2(j)), " z ", m%zz%ind(cluster2(j))
-                call lammps_command(lmp, trim(lmp_cmd_str))
-            enddo
+            !if(m%znum%ind(atom1) .eq. 40) then
+            !    temp = 1
+            !else if( m%znum%ind(atom1) .eq. 29) then
+            !    temp = 2
+            !else if( m%znum%ind(atom1) .eq. 13) then
+            !    temp = 3
+            !endif
+            !write(lmp_cmd_str, "(A9, I4, A6, I1)") "set atom ", atom1, " type ", temp
+            !call lammps_command(lmp, trim(lmp_cmd_str))
+            !if(m%znum%ind(atom2) .eq. 40) then
+            !    temp = 1
+            !else if( m%znum%ind(atom2) .eq. 29) then
+            !    temp = 2
+            !else if( m%znum%ind(atom2) .eq. 13) then
+            !    temp = 3
+            !endif
+            !write(lmp_cmd_str, "(A9, I4, A6, I1)") "set atom ", atom2, " type ", temp
+            !call lammps_command(lmp, trim(lmp_cmd_str))
             call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
             !call lammps_command (lmp, 'run 1000')
             !call lammps_command (lmp, 'minimize 1.0e-4 1.0e-6 100 1000')
             call lammps_extract_compute (te2, lmp, 'pot', 0, 0)
             ! Extracts a pointer to the arrays of positions for all atoms
             call lammps_extract_atom (x, lmp, 'x')
+            ! Extracts a pointer to the arrays of id's for all atoms
+            call lammps_extract_atom (id, lmp, 'id')
             ! Update all the model positions
             do j=1,m%natoms
-                m%xx%ind(j) = x(1,j)
-                m%yy%ind(j) = x(2,j)
-                m%zz%ind(j) = x(3,j)
+                m%xx%ind(id(j)) = x(1,j)
+                m%yy%ind(id(j)) = x(2,j)
+                m%zz%ind(id(j)) = x(3,j)
             enddo
 #else
             call eam_mc(m, w, xx_cur, yy_cur, zz_cur, xx_new, yy_new, zz_new, te2)
@@ -345,6 +355,26 @@ endif
                         write(lmp_cmd_str, "(A9, I4, A3, F, A3, F, A3, F)") "set atom ", j, " x ", m%xx%ind(j), " y ", m%yy%ind(j), " z ", m%zz%ind(j)
                         call lammps_command(lmp, trim(lmp_cmd_str))
                     enddo
+                    !! Switch the atomic numbers BACK in lammps, should already
+                    !! be back in m due to m=mold
+                    !if(m%znum%ind(atom1) .eq. 40) then
+                    !    temp = 1
+                    !else if( m%znum%ind(atom1) .eq. 29) then
+                    !    temp = 2
+                    !else if( m%znum%ind(atom1) .eq. 13) then
+                    !    temp = 3
+                    !endif
+                    !write(lmp_cmd_str, "(A9, I4, A6, I1)") "set atom ", atom2, " type ", temp
+                    !call lammps_command(lmp, trim(lmp_cmd_str))
+                    !if(m%znum%ind(atom2) .eq. 40) then
+                    !    temp = 1
+                    !else if( m%znum%ind(atom2) .eq. 29) then
+                    !    temp = 2
+                    !else if( m%znum%ind(atom2) .eq. 13) then
+                    !    temp = 3
+                    !endif
+                    !write(lmp_cmd_str, "(A9, I4, A6, I1)") "set atom ", atom1, " type ", temp
+                    !call lammps_command(lmp, trim(lmp_cmd_str))
                     accepted = .false.
                     if(myid.eq.0) write(*,*) "MC move rejected.", del_chi
                 endif

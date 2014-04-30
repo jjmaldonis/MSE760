@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # declare a name for this job (replace <jobname> with something more descriptive)
-#$ -N rmc
+#$ -N mutations
 
 # request the queue for this job
 # replace <queue_name> with queue_name e.g all.q
